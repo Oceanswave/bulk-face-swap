@@ -2,6 +2,7 @@ import os
 import re
 import base64
 import json
+import random
 import requests
 from dotenv import load_dotenv
 from io import BytesIO
@@ -9,6 +10,25 @@ from PIL import Image
 
 # Load environment variables
 load_dotenv()
+
+def get_random_subfolder(directory):
+    subfolders = [f.path for f in os.scandir(directory) if f.is_dir()]
+    return random.choice(subfolders) if subfolders else None
+
+# Function to keep searching for random subfolders until an output folder does not exist.
+def find_unique_subfolder(input_folder, output_folder):
+    while True:
+        random_input_subfolder = get_random_subfolder(input_folder)
+        if random_input_subfolder:
+            path_parts = os.path.normpath(random_input_subfolder).split(os.sep)[-2:]
+            modified_output_folder = os.path.join(output_folder, *path_parts)
+            
+            if not os.path.exists(modified_output_folder):
+                os.makedirs(modified_output_folder)
+                return random_input_subfolder, modified_output_folder
+        else:
+            # No subfolders exist in the input folder
+            return None, None
 
 def encode_image_to_base64(image_path):
     with open(image_path, "rb") as image_file:
@@ -135,15 +155,19 @@ if __name__ == "__main__":
     reference_image_path = os.getenv('REFERENCE_IMAGE_PATH')
     endpoint_url = os.getenv('ENDPOINT_URL')
 
-    path_parts = os.path.normpath(input_folder).split(os.sep)[-2:]
-    modified_output_folder = os.path.join(output_folder, *path_parts)
-    
-    if not os.path.exists(modified_output_folder):
-        os.makedirs(modified_output_folder)
+    # We need to ensure this directory exists before we proceed, as the execution environment is ephemeral.
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    # Pick a random subfolder from the input folder
+    random_input_subfolder, modified_output_folder = find_unique_subfolder(input_folder, output_folder)
+
+    print(f"Random input subfolder: {random_input_subfolder}")
+    print(f"Modified output folder: {modified_output_folder}")
 
     if (reference_image_path is None or reference_image_path == "" or not os.path.exists(reference_image_path)):
         encoded_reference_image = None
     else :
         encoded_reference_image = encode_image_to_base64(reference_image_path)
     
-    process_images(input_folder, modified_output_folder, endpoint_url, encoded_reference_image)
+    process_images(random_input_subfolder, modified_output_folder, endpoint_url, encoded_reference_image)
